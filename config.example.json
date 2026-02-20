@@ -1,0 +1,26 @@
+{
+    "bots": [
+        {
+            "id": "whatsapp_pagina_principal",
+            "name": "Bot WhatsApp (Página Principal)",
+            "type": "whatsapp",
+            "port": 5001,
+            "verify_token": "BOT_PAGINA_123"
+        },
+        {
+            "id": "telegram_comunidad",
+            "name": "Bot Telegram (Comunidad)",
+            "type": "telegram",
+            "port": 5002,
+            "enabled": false
+        },
+        {
+            "id": "whatsapp_ventas",
+            "name": "Bot WhatsApp (Ventas)",
+            "type": "whatsapp",
+            "port": 5003,
+            "verify_token": "BOT_VENTAS_XYZ",
+            "enabled": true
+        }
+    ]
+}

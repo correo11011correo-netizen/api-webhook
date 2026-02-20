@@ -1,0 +1,20 @@
+{
+    "services": [
+        {
+            "name": "Bot Principal (WhatsApp)",
+            "port": 5001
+        },
+        {
+            "name": "Servicio de Ventas (WhatsApp)",
+            "port": 5003
+        },
+        {
+            "name": "Bot de Comunidad (Telegram)",
+            "port": 5002
+        },
+        {
+            "name": "Nuevo Servicio de Analíticas",
+            "port": 8080
+        }
+    ]
+}
