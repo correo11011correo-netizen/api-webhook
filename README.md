@@ -87,3 +87,41 @@ curl http://localhost:5000/api/status
   }
 ]
 ```
+
+---
+
+## 5. Funcionalidad de Webhook Forwarding
+
+Además del monitoreo, esta aplicación puede actuar como un **puente (proxy/forwarder)** para los webhooks de Meta (WhatsApp, Instagram, etc.).
+
+### Propósito
+
+Permite que una única URL pública (`https://api.fundacionidear.com/webhook`) reciba todas las notificaciones de Meta y las reenvíe de forma segura a un servicio de bot interno (como `bot-pagina`) que se ejecuta en un puerto local no expuesto a internet.
+
+### Configuración
+
+Para habilitar el reenvío de webhooks, añade las siguientes claves al `config.json`:
+
+-   `"verify_token"`: El token de verificación secreto que configurarás en la plataforma de desarrolladores de Meta.
+-   `"bot_pagina_webhook_url"`: La URL completa (incluyendo el puerto y la ruta) del servicio de bot interno que procesará los mensajes.
+
+**Ejemplo de `config.json` con Webhook:**
+```json
+{
+    "verify_token": "tu-token-secreto-aqui",
+    "bot_pagina_webhook_url": "http://127.0.0.1:5001/webhook",
+    "services": [
+        {
+            "name": "Bot Principal (WhatsApp)",
+            "port": 5001
+        }
+    ]
+}
+```
+
+### Flujo de Funcionamiento
+
+1.  **Verificación (`GET`):** Cuando configuras tu endpoint en la plataforma de Meta, Meta envía una petición `GET` a `https://tu-dominio.com/webhook`. La aplicación verifica que el `hub.verify_token` coincida con el `verify_token` del `config.json` y responde el `hub.challenge`.
+2.  **Recepción de Mensajes (`POST`):** Cuando un usuario envía un mensaje a tu bot, Meta envía una petición `POST` con el contenido del mensaje a `https://tu-dominio.com/webhook`.
+3.  **Reenvío (`POST`):** La aplicación recibe esta petición e inmediatamente la reenvía al `bot_pagina_webhook_url` configurado.
+4.  **Respuesta Rápida:** La aplicación responde `OK` a Meta sin esperar la respuesta del bot interno. Esto asegura que Meta reciba una confirmación rápida y no desactive el webhook por timeouts.

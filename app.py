@@ -82,6 +82,45 @@ def api_status():
     ]
     return jsonify(api_response)
 
+# --- Ruta de Webhook para Meta (WhatsApp, Instagram) ---
+
+@app.route('/webhook', methods=['GET', 'POST'])
+def webhook():
+    """
+    Maneja los webhooks de Meta.
+    - GET: Para la verificación inicial del webhook.
+    - POST: Para reenviar los mensajes entrantes al servicio del bot.
+    """
+    if request.method == 'GET':
+        # Verificación del Webhook
+        verify_token = CONFIG.get("verify_token")
+        if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.verify_token') == verify_token:
+            logging.info("Verificación de Webhook exitosa.")
+            return request.args.get('hub.challenge'), 200
+        else:
+            logging.warning("Fallo en la verificación del Webhook. Token no coincide.")
+            return 'Verification token mismatch', 403
+
+    if request.method == 'POST':
+        # Reenvío de mensajes al bot
+        bot_url = CONFIG.get("bot_pagina_webhook_url")
+        if not bot_url:
+            logging.error("No se ha configurado 'bot_pagina_webhook_url' en config.json.")
+            return jsonify({"status": "error", "message": "Webhook forwarding URL not configured"}), 500
+
+        data = request.get_json()
+        logging.info(f"Reenviando webhook a {bot_url}")
+        
+        try:
+            # Se reenvía la petición de forma asíncrona (timeout bajo)
+            requests.post(bot_url, json=data, timeout=2)
+        except requests.exceptions.RequestException as e:
+            # Si el bot no responde, se registra el error pero se devuelve OK a Meta.
+            logging.error(f"No se pudo reenviar el webhook a {bot_url}: {e}")
+        
+        # Se responde OK a Meta inmediatamente para no ser descalificado.
+        return 'OK', 200
+
 if __name__ == '__main__':
     logging.info("Iniciando Port-Monitor en modo de desarrollo.")
     app.run(host='0.0.0.0', port=5000)

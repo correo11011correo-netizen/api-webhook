@@ -1,4 +1,6 @@
 {
+    "verify_token": "bot1234",
+    "bot_pagina_webhook_url": "http://127.0.0.1:5001/webhook",
     "services": [
         {
             "name": "Bot Principal (WhatsApp)",
