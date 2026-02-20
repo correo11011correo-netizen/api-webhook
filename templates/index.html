@@ -3,107 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Webhook Manager - Estado de Servicios</title>
+    <title>API Webhook Manager - Dashboard de Diagnóstico</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #1c1e21;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f7f8fa;
+            color: #333;
             margin: 0;
-            padding: 20px;
+            padding: 2rem;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        .header h1 {
-            font-size: 2.5em;
-            color: #000;
-        }
-        .header p {
-            font-size: 1.2em;
-            color: #606770;
-        }
+        .header { text-align: center; margin-bottom: 3rem; }
+        .header h1 { font-size: 2.5rem; color: #1a1a1a; }
+        .header p { font-size: 1.1rem; color: #666; }
         .container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            max-width: 1200px;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            max-width: 1400px;
             margin: auto;
         }
         .service-card {
             background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            border-top: 5px solid;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .service-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        .service-card h2 {
-            margin: 0 0 10px 0;
-            font-size: 1.5em;
-            color: #000;
-        }
-        .service-card p {
-            margin: 0 0 15px 0;
-            color: #606770;
-        }
-        .status {
-            display: flex;
-            align-items: center;
-        }
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        .status-dot.active {
-            background-color: #42b72a; /* Verde */
-        }
-        .status-text {
-            font-weight: bold;
-            color: #42b72a;
-        }
-        .no-services {
-            text-align: center;
-            grid-column: 1 / -1;
-            padding: 40px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        .service-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.08); }
+        .service-card.Activo { border-color: #28a745; }
+        .service-card.Inactivo { border-color: #dc3545; }
+        .service-card.No-Responde { border-color: #ffc107; }
+        
+        .card-header { margin-bottom: 1rem; }
+        .card-header h2 { margin: 0; font-size: 1.4rem; color: #1a1a1a; }
+        .card-header .status { font-weight: 600; font-size: 1rem; }
+        .Activo .status { color: #28a745; }
+        .Inactivo .status { color: #dc3545; }
+        .No-Responde .status { color: #e8a800; }
+
+        .card-body p { margin: 0.5rem 0; color: #555; }
+        .card-body strong { color: #333; }
+        
+        .webhook-url { margin-top: 1rem; }
+        .webhook-url strong { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333; }
+        .webhook-url code {
+            display: block;
+            background-color: #e9ecef;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #1a1a1a;
+            word-wrap: break-word;
         }
     </style>
 </head>
 <body>
-
     <div class="header">
         <h1>API Webhook Manager</h1>
-        <p>Dashboard de Comandos y Servicios Disponibles</p>
+        <p>Dashboard de Diagnóstico en Tiempo Real</p>
     </div>
-
     <div class="container">
-        {% if services %}
-            {% for service in services %}
-            <div class="service-card">
-                <h2>{{ service.name }}</h2>
-                <p>{{ service.description }}</p>
-                <div class="status">
-                    <span class="status-dot active"></span>
-                    <span class="status-text">Funcionando</span>
+        {% if bots %}
+            {% for bot in bots %}
+            <div class="service-card {{ bot['state'].replace(' ', '-') }}">
+                <div class="card-header">
+                    <h2>{{ bot['bot_name'] }}</h2>
+                    <p class="status">{{ bot['state'] }}</p>
                 </div>
+                <div class="card-body">
+                    <p><strong>Tipo:</strong> {{ bot['bot_type'] }}</p>
+                    <p><strong>ID de Configuración:</strong> <code>{{ bot['config']['id'] }}</code></p>
+                    <p><strong>Puerto de Escucha:</strong> <code>{{ bot['config']['port'] }}</code></p>
+                </div>
+                {% if bot['state'] == 'Activo' %}
+                <div class="webhook-url">
+                    <strong>URL del Webhook:</strong>
+                    <code>{{ base_url }}webhook/{{ bot['config']['id'] }}</code>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
-        {% else %}
-            <div class="no-services">
-                <h2>No hay servicios activos en este momento.</h2>
-                <p>Cuando un bot o programa se conecte, aparecerá aquí.</p>
-            </div>
         {% endif %}
     </div>
-
 </body>
 </html>

@@ -1,174 +1,123 @@
-# API Webhook Manager (Proyecto Genérico)
+# API Webhook Manager - Guía para Desarrolladores
 
-Este proyecto es una plantilla base para desplegar rápidamente un servidor de API y Webhook en Python utilizando Flask. Está diseñado para ser robusto, escalable y fácil de configurar en un nuevo servidor.
+## 1. Arquitectura General
 
-El sistema incluye:
-- Un **Dashboard Dinámico** que muestra en tiempo real los servicios que están activos.
-- Una **API RESTful** con soporte para CORS para interactuar con un frontend.
-- Un **Webhook Genérico** para recibir notificaciones de servicios externos como Meta.
-- Gestión de procesos mediante **`systemd`** para un funcionamiento continuo.
+Este proyecto implementa un patrón de **API Gateway** o **Manager**. Actúa como el único punto de entrada público (`https://api.fundacionidear.com/`) y se encarga de gestionar, monitorear y redirigir el tráfico a múltiples servicios de bots que se ejecutan de forma independiente en procesos locales.
 
----
+El sistema consta de dos componentes principales:
+1.  **El Manager (`app.py`):** La aplicación Flask pública que está activa permanentemente.
+2.  **Los Bots (ej. `bots/whatsapp_bot.py`):** Aplicaciones independientes, cada una escuchando en un puerto local, que contienen la lógica específica de un bot.
 
-## 1. Requisitos Previos
-
-- Un servidor (ej. una instancia de Google Cloud, AWS, etc.) con acceso `sudo`. Se recomienda una distribución de Linux como Debian o Ubuntu.
-- Una dirección IP estática asignada al servidor.
-- Un nombre de dominio (o subdominio) apuntando a la IP estática del servidor.
-- Python 3 y `pip` instalados en el servidor.
-- Git para clonar el repositorio.
+El **Dashboard de Diagnóstico** en la página principal (`/`) es la herramienta central para monitorear el estado de todos los bots configurados en tiempo real.
 
 ---
 
-## 2. Configuración Inicial del Servidor
+## 2. El Contrato del Bot: Endpoint `/health`
 
-Estos comandos deben ejecutarse en el nuevo servidor.
+Para que el Manager pueda reconocer y gestionar un bot, el bot **DEBE** implementar un endpoint `GET /health`. Este es un contrato obligatorio.
 
-### 2.1. Clonar el Repositorio
-
-```bash
-git clone <URL_DE_TU_REPOSITORIO_GIT>
-cd api-webhook-manager
-```
-
-### 2.2. Instalar Paquetes Necesarios
-
-Instalaremos el servidor web Apache y crearemos un entorno virtual para Python.
-
-```bash
-# Actualizar e instalar paquetes
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y apache2 python3-venv
-
-# Crear y activar el entorno virtual
-python3 -m venv venv
-source venv/bin/activate
-
-# Instalar las dependencias de Python
-pip install -r requirements.txt
-```
-
----
-
-## 3. Configuración del Servidor Web (Proxy Inverso con Apache)
-
-Apache reenviará las peticiones públicas (puertos 80/443) a nuestra aplicación Flask (puerto 5000).
-
-### 3.1. Crear Archivo de Configuración de Apache
-
-```bash
-sudo nano /etc/apache2/sites-available/tudominio.com.conf
-```
-
-Pega la siguiente configuración (reemplaza `tudominio.com`):
-
-```apache
-<VirtualHost *:80>
-    ServerName tudominio.com
-    ProxyPreserveHost On
-    ProxyRequests Off
-    ProxyPass / http://127.0.0.1:5000/
-    ProxyPassReverse / http://127.0.0.1:5000/
-</VirtualHost>
-```
-
-### 3.2. Habilitar Sitio, Módulos y Configurar HTTPS
-
-```bash
-# Habilitar módulos, sitio y reiniciar apache
-sudo a2enmod proxy proxy_http
-sudo a2ensite tudominio.com.conf
-sudo systemctl restart apache2
-
-# Instalar certbot y obtener certificado SSL (sigue las instrucciones)
-sudo apt install -y certbot python3-certbot-apache
-sudo certbot --apache -d tudominio.com
-```
-
----
-
-## 4. Crear el Servicio `systemd`
-
-Esto asegura que la API se ejecute de forma continua.
-
-### 4.1. Crear el Archivo de Servicio
-
-```bash
-sudo nano /etc/systemd/system/api_webhook.service
-```
-
-Pega la configuración (ajusta `User` y las rutas si es necesario):
-
-```ini
-[Unit]
-Description=Generic API Webhook Service
-After=network.target
-
-[Service]
-User=tu_usuario_linux
-Group=tu_usuario_linux
-WorkingDirectory=/home/tu_usuario_linux/api-webhook-manager
-ExecStart=/home/tu_usuario_linux/api-webhook-manager/venv/bin/python3 app.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 4.2. Habilitar e Iniciar el Servicio
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable api_webhook.service
-sudo systemctl start api_webhook.service
-sudo systemctl status api_webhook.service
-```
-
----
-
-## 5. Endpoints de la API
-
-Una vez desplegado, el servicio expondrá las siguientes rutas:
-
-### `GET /`
-- **Descripción:** Muestra un dashboard HTML con una cuadrícula de todos los servicios que están **actualmente activos** y funcionando.
-- **Respuesta:** `text/html`
-
-### `GET /api/status`
-- **Descripción:** Devuelve un reporte completo del estado (activo/inactivo) de todos los servicios registrados en formato JSON.
-- **Respuesta:** `application/json`
-- **Ejemplo de Respuesta:**
-  ```json
-  {
-    "whatsapp_bot": {
-      "name": "Bot de WhatsApp",
-      "active": true
-    },
-    "data_processor": {
-      "name": "Procesador de Datos",
-      "active": false
+-   **Ruta:** `GET /health`
+-   **Función:** Debe devolver una respuesta JSON que identifique al bot.
+-   **Respuesta JSON Requerida:**
+    ```json
+    {
+      "status": "ok",
+      "name": "Nombre Descriptivo del Bot (ej. Bot de Ventas v1.2)",
+      "type": "Tipo de Bot (ej. whatsapp, telegram, etc.)"
     }
-  }
-  ```
+    ```
+El Manager utiliza esta respuesta para poblar el Dashboard de Diagnóstico. Si un bot no implementa este endpoint correctamente, el Manager lo reportará como **"No Responde"**.
 
-### `POST /api/send-message`
-- **Descripción:** Permite a un cliente (como un frontend) enviar un mensaje a través del servicio de bot configurado.
-- **Requiere CORS:** Sí.
-- **Cuerpo de la Petición (JSON):**
-  ```json
-  {
-    "to": "ID_o_numero_de_destino",
-    "text": "Este es el mensaje a enviar."
-  }
-  ```
-- **Respuesta de Éxito:**
-  ```json
-  {
-    "status": "success",
-    "message": "Mensaje enviado (simulado)"
-  }
-  ```
+---
 
-### `GET, POST /api/webhook`
-- **Descripción:** Endpoint genérico para recibir webhooks de servicios externos. Incluye la lógica de verificación para la API de Meta.
-- **Respuesta:** Varía según la petición.
+## 3. Configuración de Nuevos Bots
+
+Para añadir un nuevo bot al sistema, sigue estos pasos:
+
+1.  **Desarrolla tu Bot:** Crea tu aplicación de bot. Asegúrate de que implemente el endpoint `/health` como se describe arriba. Tu bot debe escuchar en un puerto no utilizado (ej. `5004`, `5005`, etc.).
+
+2.  **Edita `config.json`:** Añade un nuevo objeto al array `bots`.
+    ```json
+    {
+        "bots": [
+            {
+                "id": "whatsapp_pagina_principal",
+                "name": "Bot WhatsApp (Página Principal)",
+                "type": "whatsapp",
+                "port": 5001,
+                "verify_token": "TOKEN_SECRETO_PARA_ESTE_BOT",
+                "enabled": true
+            },
+            {
+                "id": "nuevo_bot_telegram",
+                "name": "Nuevo Bot de Telegram",
+                "type": "telegram",
+                "port": 5004,
+                "enabled": true
+            }
+        ]
+    }
+    ```
+    -   `id`: Un identificador único. **Se usará en la URL del webhook.**
+    -   `name` y `type`: Nombres descriptivos para el dashboard.
+    -   `port`: El puerto en el que tu bot estará escuchando.
+    -   `verify_token`: (Opcional, para bots tipo WhatsApp) El token que Meta usará para verificar el webhook.
+    -   `enabled`: `true` para que el Manager lo gestione, `false` para ignorarlo.
+
+3.  **Reinicia el Manager:** Para que los cambios en `config.json` surtan efecto.
+    ```bash
+    sudo systemctl restart api_fundacion.service
+    ```
+4.  **Inicia tu Bot:** Ejecuta tu nuevo bot en el servidor (usando `systemd`, `tmux`, etc.) para que empiece a escuchar en su puerto. Al instante, el Dashboard lo mostrará como **"Activo"**.
+
+---
+
+## 4. Uso de la API y Webhooks
+
+### Webhooks
+
+La URL para configurar en los servicios externos (Meta, Telegram, etc.) sigue un patrón predecible:
+
+-   **Formato:** `https://api.fundacionidear.com/webhook/<bot_id>`
+-   **`<bot_id>`:** Corresponde al `id` que definiste en `config.json`.
+
+**Ejemplo (`curl` para simular un webhook de WhatsApp):**
+```bash
+curl -X POST \
+  https://api.fundacionidear.com/webhook/whatsapp_pagina_principal \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "id": "SENDER_ID",
+            "changes": [{"value": {"messages": [{"from": "123456789", "text": {"body": "Hola"}}]}}]
+        }]
+      }'
+```
+
+### API de Estado
+
+Para obtener el estado de todos los bots en formato JSON:
+
+-   **Endpoint:** `GET /api/status`
+
+**Ejemplo (`curl`):**
+```bash
+curl https://api.fundacionidear.com/api/status
+```
+
+**Ejemplo de Respuesta:**
+```json
+{
+    "nuevo_bot_telegram": {
+        "name": "Nuevo Bot de Telegram",
+        "state": "Inactivo",
+        "type": "telegram"
+    },
+    "whatsapp_pagina_principal": {
+        "name": "Bot WhatsApp (Página Principal)",
+        "state": "Activo",
+        "type": "whatsapp"
+    }
+}
+```
