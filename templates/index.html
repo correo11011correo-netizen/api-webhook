@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Webhook Manager - Dashboard de Diagnóstico</title>
+    <title>Dashboard de Diagnóstico de Puertos</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body {
@@ -45,46 +45,37 @@
 
         .card-body p { margin: 0.5rem 0; color: #555; }
         .card-body strong { color: #333; }
-        
-        .webhook-url { margin-top: 1rem; }
-        .webhook-url strong { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333; }
-        .webhook-url code {
-            display: block;
+        .card-body code {
             background-color: #e9ecef;
-            padding: 0.75rem;
-            border-radius: 6px;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
             font-size: 0.9rem;
-            color: #1a1a1a;
-            word-wrap: break-word;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>API Webhook Manager</h1>
-        <p>Dashboard de Diagnóstico en Tiempo Real</p>
+        <h1>Dashboard de Diagnóstico de Puertos</h1>
+        <p>Monitoreo en tiempo real de los servicios configurados.</p>
     </div>
     <div class="container">
-        {% if bots %}
-            {% for bot in bots %}
-            <div class="service-card {{ bot['state'].replace(' ', '-') }}">
+        {% if services %}
+            {% for service in services %}
+            <div class="service-card {{ service['state'].replace(' ', '-') }}">
                 <div class="card-header">
-                    <h2>{{ bot['bot_name'] }}</h2>
-                    <p class="status">{{ bot['state'] }}</p>
+                    <h2>{{ service['service_name'] }}</h2>
+                    <p class="status">{{ service['state'] }}</p>
                 </div>
                 <div class="card-body">
-                    <p><strong>Tipo:</strong> {{ bot['bot_type'] }}</p>
-                    <p><strong>ID de Configuración:</strong> <code>{{ bot['config']['id'] }}</code></p>
-                    <p><strong>Puerto de Escucha:</strong> <code>{{ bot['config']['port'] }}</code></p>
+                    <p><strong>Puerto Monitoreado:</strong> <code>{{ service['config']['port'] }}</code></p>
+                    {% if service['state'] == 'Activo' %}
+                    <p><strong>Tipo Identificado:</strong> <code>{{ service['service_type'] }}</code></p>
+                    {% endif %}
                 </div>
-                {% if bot['state'] == 'Activo' %}
-                <div class="webhook-url">
-                    <strong>URL del Webhook:</strong>
-                    <code>{{ base_url }}webhook/{{ bot['config']['id'] }}</code>
-                </div>
-                {% endif %}
             </div>
             {% endfor %}
+        {% else %}
+            <p>No hay servicios configurados en <code>config.json</code>.</p>
         {% endif %}
     </div>
 </body>

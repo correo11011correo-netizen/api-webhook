@@ -6,84 +6,82 @@ import logging
 import socket
 
 # --- Configuración de Logging ---
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Manager] [%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Port-Monitor] [%(levelname)s] %(message)s')
 
 # --- Configuración de la Aplicación ---
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-
-# --- !! MODIFICACIÓN CLAVE: DESHABILITAR CACHÉ DE PLANTILLAS ---
-# Esto es para depuración. En un entorno de producción de alto rendimiento,
-# se gestionaría de otra manera, pero para nuestro caso, asegura que
-# siempre se lea el archivo más reciente desde el disco.
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+CORS(app) # Habilitar CORS para todas las rutas
 
 # --- Carga de Configuración ---
 def load_config():
-    """Carga la configuración de los bots desde config.json."""
+    """Carga la configuración de los servicios a monitorear desde config.json."""
     try:
         with open('config.json') as f:
-            logging.info("Cargando configuración desde config.json")
+            logging.info("Cargando configuración de servicios desde config.json")
+            # --- !! LÍNEA CORREGIDA !! ---
             return json.load(f)
     except Exception as e:
-        logging.error(f"No se pudo cargar config.json: {e}")
-        return {"bots": []}
+        logging.error(f"No se pudo cargar o parsear config.json: {e}")
+        return {"services": []}
 
 CONFIG = load_config()
 
-# --- Verificación de Estado Activa ---
-def get_bot_status(bot_config):
-    port = bot_config["port"]
+# --- Lógica de Diagnóstico de Puertos ---
+def check_service_status(service_config):
+    """
+    Verifica el estado de un servicio. Primero revisa el puerto, luego el endpoint /health.
+    Retorna un diccionario con el estado y la información del servicio.
+    """
+    port = service_config["port"]
     status_info = {
-        "config": bot_config,
-        "state": "Inactivo",
-        "bot_name": bot_config["name"],
-        "bot_type": bot_config["type"]
+        "config": service_config,
+        "state": "Inactivo", # Estado por defecto
+        "service_name": service_config["name"],
+        "service_type": "N/A"
     }
+
+    # Paso 1: Verificar si el puerto está abierto
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    if s.connect_ex(("127.0.0.1", port)) != 0:
+        s.close()
+        return status_info # Retorna "Inactivo" si el puerto está cerrado
+    s.close()
+
+    # Paso 2: Si el puerto está abierto, intentar obtener el health check
     try:
         response = requests.get(f'http://127.0.0.1:{port}/health', timeout=1)
         if response.status_code == 200:
-            bot_data = response.json()
+            service_data = response.json()
             status_info["state"] = "Activo"
-            status_info["bot_name"] = bot_data.get("name", "Nombre Desconocido")
-            status_info["bot_type"] = bot_data.get("type", "Tipo Desconocido")
+            status_info["service_name"] = service_data.get("name", "Nombre Desconocido")
+            status_info["service_type"] = service_data.get("type", "Tipo Desconocido")
         else:
             status_info["state"] = "No Responde"
     except requests.RequestException:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        if s.connect_ex(("127.0.0.1", port)) == 0:
-            status_info["state"] = "No Responde"
-        s.close()
+        status_info["state"] = "No Responde"
+        
     return status_info
 
 # --- Rutas de la Aplicación ---
+
 @app.route('/', methods=['GET'])
 def dashboard():
-    bots_status = [get_bot_status(bot_config) for bot_config in CONFIG.get("bots", []) if bot_config.get("enabled", True)]
-    base_url = request.url_root.replace('http://', 'https://')
-    return render_template('index.html', bots=bots_status, base_url=base_url)
+    """Muestra el dashboard con el estado detallado de todos los servicios configurados."""
+    service_statuses = [check_service_status(svc) for svc in CONFIG.get("services", [])]
+    return render_template('index.html', services=service_statuses)
 
-@app.route('/webhook/<string:bot_id>', methods=['GET', 'POST'])
-def webhook_dispatcher(bot_id):
-    bot_config = next((bot for bot in CONFIG["bots"] if bot["id"] == bot_id), None)
-    if not bot_config or not bot_config.get("enabled", True):
-        logging.warning(f"Rechazado webhook para bot no existente o deshabilitado: {bot_id}")
-        return jsonify({"status": "error", "message": "Bot no encontrado o deshabilitado"}), 404
-
-    logging.info(f"Webhook recibido para bot '{bot_id}' desde {request.remote_addr}")
-    status = get_bot_status(bot_config)
-    if status["state"] != "Activo":
-        logging.error(f"El bot '{bot_id}' no está activo. Estado: {status['state']}.")
-        return jsonify({"status": "error", "message": f"El proceso del bot '{bot_id}' no está disponible"}), 503
-    
-    try:
-        resp = requests.post(f'http://127.0.0.1:{bot_config["port"]}', json=request.json, headers=request.headers, timeout=5)
-        return (resp.content, resp.status_code, resp.headers.items())
-    except requests.RequestException as e:
-        logging.error(f"Error al intentar redirigir webhook a '{bot_id}': {e}")
-        return jsonify({"status": "error", "message": f"Error comunicándose con el bot: {e}"}), 504
+@app.route('/api/status', methods=['GET'])
+def api_status():
+    """Endpoint de API que devuelve el estado de todos los servicios en formato JSON."""
+    service_statuses = [check_service_status(svc) for svc in CONFIG.get("services", [])]
+    # Limpiar la respuesta para la API, eliminando el objeto de configuración interno
+    api_response = [
+        {"name": s["service_name"], "port": s["config"]["port"], "state": s["state"], "type": s["service_type"]}
+        for s in service_statuses
+    ]
+    return jsonify(api_response)
 
 if __name__ == '__main__':
-    logging.info("Iniciando API Webhook Manager en modo de desarrollo.")
+    logging.info("Iniciando Port-Monitor en modo de desarrollo.")
     app.run(host='0.0.0.0', port=5000)
