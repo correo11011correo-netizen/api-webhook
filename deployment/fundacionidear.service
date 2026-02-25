@@ -1,11 +1,13 @@
 [Unit]
-Description=Fundacion Idear Flask Webhook
+Description=Gunicorn instance to serve Fundacion Idear Flask Webhook
 After=network.target
 
 [Service]
 User=nestorfabianriveros2014
-WorkingDirectory=/home/nestorfabianriveros2014/api-fundacion-idear-webhook
-ExecStart=/usr/bin/python3 /home/nestorfabianriveros2014/api-fundacion-idear-webhook/app.py
+Group=www-data
+# Asegurar que el contexto de ejecución sea el correcto para encontrar la carpeta templates
+WorkingDirectory=/home/nestorfabianriveros2014/api-fundacion-idear-webhook/app
+ExecStart=/usr/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 app:app
 Restart=always
 
 [Install]
