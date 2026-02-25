@@ -56,4 +56,5 @@ Este es el código fuente de la aplicación Python que se ejecuta en el backend 
 
 Este directorio contiene archivos de log extraídos del servidor para ayudar en el diagnóstico.
 
-- **`apache_error.log`**: Últimas 50 líneas del log de errores de Apache. Contiene información crítica sobre problemas en la configuración o durante el procesamiento de solicitudes.
+- **`apache_error.log`**: Últimas 50 líneas del log de errores general de Apache.
+- **`api_fundacion_error.log`**: Últimas 50 líneas del log de errores **específico** del VirtualHost `api.fundacionidear.com`. Este log es crucial para errores de proxy o del sitio.
