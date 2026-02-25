@@ -1,127 +1,73 @@
-# Dashboard de Diagnóstico de Puertos
+# Repositorio de Configuración y Código para el Webhook de `api.fundacionidear.com`
 
-## 1. Propósito
+## 1. Visión General del Proyecto
 
-Esta herramienta monitorea en tiempo real una lista de puertos locales y muestra el estado de los servicios que se ejecutan en ellos. Su propósito es actuar como un **dashboard de diagnóstico centralizado** para desarrolladores, permitiendo verificar rápidamente qué servicios están activos y si responden correctamente.
+Este repositorio contiene el código de la aplicación y la documentación de la configuración del servidor para el webhook de la API de Meta (WhatsApp), accesible públicamente a través de `https://api.fundacionidear.com/webhook`.
 
-No gestiona webhooks ni redirige tráfico. Su única función es **monitorear y reportar**.
-
----
-
-## 2. El Contrato de Servicio: Endpoint `/health`
-
-Para que el dashboard pueda identificar un servicio y mostrarlo como **"Activo"**, dicho servicio **DEBE** implementar un endpoint `GET /health`. Este es el contrato que permite el descubrimiento.
-
--   **Ruta:** `GET /health`
--   **Función:** Debe devolver una respuesta JSON que identifique el servicio.
--   **Respuesta JSON Requerida:**
-    ```json
-    {
-      "name": "Nombre Descriptivo del Servicio (ej. API de Autenticación v2)",
-      "type": "Tipo de Servicio (ej. rest-api, whatsapp-bot, etc.)"
-    }
-    ```
-
-Si un servicio se está ejecutando en un puerto monitoreado pero no implementa este endpoint (o falla), el dashboard lo reportará como **"No Responde"**. Si el puerto está cerrado, se reportará como **"Inactivo"**.
+El objetivo de este documento es proporcionar una fuente de verdad clara y estructurada para cualquier desarrollador o agente de IA que necesite entender, mantener o depurar el sistema.
 
 ---
 
-## 3. Configuración
+## 2. Estructura del Repositorio
 
-Para monitorear tus servicios, edita el archivo `config.json`.
+- **`/app`**: Contiene el código fuente de la aplicación de backend responsable de procesar los webhooks.
+  - `app.py`: La aplicación principal escrita en Flask.
+  - `config.example.json`: Una plantilla que muestra las claves de configuración requeridas por `app.py`. **Nota**: El archivo `config.json` real no debe ser subido al repositorio.
 
-1.  Abre `config.json`.
-2.  Añade o modifica los objetos en la lista `services`. Cada objeto requiere dos claves:
-    -   `name`: Un nombre descriptivo que se mostrará en el dashboard si el servicio no puede ser identificado.
-    -   `port`: El número de puerto que tu servicio está utilizando.
+- **`/current_configuration`**: Contiene una instantánea de los archivos de configuración críticos extraídos directamente del servidor `mi-servidor-web` en la fecha del último commit.
+  - `README.md`: Una explicación detallada de cada archivo en este directorio.
+  - `apache_virtualhost.conf`: La configuración del VirtualHost de Apache.
+  - `gcp_firewall_rules.json`: Las reglas de firewall de Google Cloud.
+  - `python_app_code.py`: Una copia del código de la aplicación que se está ejecutando actualmente.
+  - `fullchain.pem` y `privkey.pem`: Los certificados SSL públicos y privados. **ADVERTENCIA**: La clave privada es información sensible.
+  - `config.example.json`: Plantilla de configuración.
 
-**Ejemplo de `config.json`:**
-```json
-{
-    "services": [
-        {
-            "name": "Bot Principal (WhatsApp)",
-            "port": 5001
-        },
-        {
-            "name": "Nuevo Servicio de Analíticas",
-            "port": 8080
-        }
-    ]
-}
-```
+- **`README.md`**: Este archivo principal.
 
-3.  **Reinicia el Dashboard:** Para que los cambios en `config.json` surtan efecto.
+---
+
+## 3. Guía de Despliegue y Diagnóstico
+
+### 3.1. Requisitos del Servidor
+
+- Una instancia de cómputo con acceso a la red.
+- Software instalado: `apache2`, `python3`, `certbot`.
+- Un registro DNS (Tipo A) apuntando `api.fundacionidear.com` a la IP pública de la instancia.
+
+### 3.2. Configuración de la Aplicación (`/app`)
+
+1.  **Copiar el código**: Sube el contenido de la carpeta `/app` a la instancia del servidor (ej. `/home/user/api-webhook-app`).
+2.  **Crear `config.json`**: Dentro del directorio de la aplicación, crea un archivo `config.json` basándote en `config.example.json`.
+    - `VERIFY_TOKEN`: Debe ser una cadena secreta y coincidir exactamente con el token que configures en el panel de desarrolladores de Meta.
+    - `FORWARD_URL`: La URL del servicio al que se reenviarán los datos de los webhooks (mensajes).
+3.  **Ejecutar la aplicación**: La aplicación `app.py` debe ejecutarse como un servicio persistente que escuche en `0.0.0.0:5000`. Se recomienda usar un gestor de procesos como `gunicorn` o `systemd`.
+
+    **Ejemplo de ejecución con Gunicorn:**
     ```bash
-    sudo systemctl restart api_fundacion.service
+    gunicorn --bind 0.0.0.0:5000 app:app
     ```
-4.  **Inicia tu Servicio:** Ejecuta tu aplicación en el puerto configurado. Si implementa el contrato `/health` correctamente, el dashboard lo reflejará como "Activo" al instante.
 
----
+### 3.3. Configuración del Servidor Web (Apache)
 
-## 4. API de Estado
+1.  **Copiar el VirtualHost**: El archivo `deployment_config/apache-api.fundacionidear.com.conf` debe ser copiado a `/etc/apache2/sites-available/`.
+2.  **Habilitar el sitio y los módulos**:
+    ```bash
+    sudo a2ensite apache-api.fundacionidear.com.conf
+    sudo a2enmod proxy proxy_http ssl
+    sudo systemctl restart apache2
+    ```
+3.  **Generar Certificados SSL**: Si es la primera vez, genera los certificados con Certbot.
+    ```bash
+    sudo certbot --apache -d api.fundacionidear.com
+    ```
+    Certbot modificará automáticamente el archivo de configuración de Apache para usar los certificados.
 
-Para obtener el estado de todos los servicios monitoreados en formato JSON, puedes consultar el siguiente endpoint:
+### 3.4. Diagnóstico Clave (Hallazgo Actual)
 
--   **Endpoint:** `GET /api/status`
+- **Causa Raíz del Fallo**: El análisis de la instancia reveló que la aplicación `app.py` no podía iniciarse porque el archivo `config.json` **no existía** en el directorio esperado.
+- **Pasos para la Solución**:
+    1.  Crear el archivo `config.json` en la ubicación correcta en el servidor.
+    2.  Poblarlo con el `VERIFY_TOKEN` y la `FORWARD_URL` correctos.
+    3.  Reiniciar el proceso de la aplicación `app.py` para que cargue la nueva configuración.
 
-**Ejemplo (`curl`):**
-```bash
-curl http://localhost:5000/api/status
-```
-
-**Ejemplo de Respuesta:**
-```json
-[
-  {
-    "name": "Bot Principal (WhatsApp)",
-    "port": 5001,
-    "state": "Inactivo",
-    "type": "N/A"
-  },
-  {
-    "name": "Servicio de Analíticas Productivas",
-    "port": 8080,
-    "state": "Activo",
-    "type": "data-api"
-  }
-]
-```
-
----
-
-## 5. Funcionalidad de Webhook Forwarding
-
-Además del monitoreo, esta aplicación puede actuar como un **puente (proxy/forwarder)** para los webhooks de Meta (WhatsApp, Instagram, etc.).
-
-### Propósito
-
-Permite que una única URL pública (`https://api.fundacionidear.com/webhook`) reciba todas las notificaciones de Meta y las reenvíe de forma segura a un servicio de bot interno (como `bot-pagina`) que se ejecuta en un puerto local no expuesto a internet.
-
-### Configuración
-
-Para habilitar el reenvío de webhooks, añade las siguientes claves al `config.json`:
-
--   `"verify_token"`: El token de verificación secreto que configurarás en la plataforma de desarrolladores de Meta.
--   `"bot_pagina_webhook_url"`: La URL completa (incluyendo el puerto y la ruta) del servicio de bot interno que procesará los mensajes.
-
-**Ejemplo de `config.json` con Webhook:**
-```json
-{
-    "verify_token": "tu-token-secreto-aqui",
-    "bot_pagina_webhook_url": "http://127.0.0.1:5001/webhook",
-    "services": [
-        {
-            "name": "Bot Principal (WhatsApp)",
-            "port": 5001
-        }
-    ]
-}
-```
-
-### Flujo de Funcionamiento
-
-1.  **Verificación (`GET`):** Cuando configuras tu endpoint en la plataforma de Meta, Meta envía una petición `GET` a `https://tu-dominio.com/webhook`. La aplicación verifica que el `hub.verify_token` coincida con el `verify_token` del `config.json` y responde el `hub.challenge`.
-2.  **Recepción de Mensajes (`POST`):** Cuando un usuario envía un mensaje a tu bot, Meta envía una petición `POST` con el contenido del mensaje a `https://tu-dominio.com/webhook`.
-3.  **Reenvío (`POST`):** La aplicación recibe esta petición e inmediatamente la reenvía al `bot_pagina_webhook_url` configurado.
-4.  **Respuesta Rápida:** La aplicación responde `OK` a Meta sin esperar la respuesta del bot interno. Esto asegura que Meta reciba una confirmación rápida y no desactive el webhook por timeouts.
+Una vez que la aplicación se esté ejecutando correctamente, el endpoint `https://api.fundacionidear.com/webhook` responderá adecuadamente a la solicitud de verificación de Meta.
