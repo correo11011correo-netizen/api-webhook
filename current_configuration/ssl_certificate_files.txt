@@ -1,6 +1,0 @@
-total 4
--rw-r--r-- 1 root root 692 Feb 17 02:22 README
-lrwxrwxrwx 1 root root  46 Feb 17 02:22 cert.pem -> ../../archive/api.fundacionidear.com/cert1.pem
-lrwxrwxrwx 1 root root  47 Feb 17 02:22 chain.pem -> ../../archive/api.fundacionidear.com/chain1.pem
-lrwxrwxrwx 1 root root  51 Feb 17 02:22 fullchain.pem -> ../../archive/api.fundacionidear.com/fullchain1.pem
-lrwxrwxrwx 1 root root  49 Feb 17 02:22 privkey.pem -> ../../archive/api.fundacionidear.com/privkey1.pem
