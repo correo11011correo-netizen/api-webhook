@@ -1,0 +1,19 @@
+# /etc/systemd/system/new-telegram-bot.service
+# Ejemplo de cómo configurar un nuevo bot (ej. para Telegram)
+
+[Unit]
+Description=Gunicorn instance to serve a new Telegram Bot
+After=network.target
+
+[Service]
+# Cambiar el usuario si es diferente
+User=nestorfabianriveros2014
+
+# Apuntar al directorio del nuevo bot
+WorkingDirectory=/home/nestorfabianriveros2014/new-telegram-bot
+# Apuntar al Gunicorn del entorno virtual del nuevo bot
+ExecStart=/home/nestorfabianriveros2014/new-telegram-bot/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5002 main:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

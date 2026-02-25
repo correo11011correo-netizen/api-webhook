@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve Bot Manager Engine
+After=network.target
+
+[Service]
+User=nestorfabianriveros2014
+Group=www-data
+WorkingDirectory=/home/nestorfabianriveros2014/bot-manager/bot-engine
+ExecStart=/home/nestorfabianriveros2014/bot-manager/bot-engine/venv/bin/python3 -m gunicorn --workers 3 --bind 127.0.0.1:5001 server:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
