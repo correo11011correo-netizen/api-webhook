@@ -1,0 +1,150 @@
+[
+  {
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "80"
+        ]
+      }
+    ],
+    "creationTimestamp": "2026-02-05T17:06:50.501-08:00",
+    "description": "",
+    "direction": "INGRESS",
+    "disabled": false,
+    "id": "3296541441754955845",
+    "kind": "compute#firewall",
+    "logConfig": {
+      "enable": false
+    },
+    "name": "allow-http-mercadopaginas",
+    "network": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/networks/default",
+    "priority": 1000,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/firewalls/allow-http-mercadopaginas",
+    "sourceRanges": [
+      "0.0.0.0/0"
+    ],
+    "targetTags": [
+      "http-server"
+    ]
+  },
+  {
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "443"
+        ]
+      }
+    ],
+    "creationTimestamp": "2026-02-07T12:04:37.582-08:00",
+    "description": "Allow HTTPS traffic",
+    "direction": "INGRESS",
+    "disabled": false,
+    "id": "219345060916503610",
+    "kind": "compute#firewall",
+    "logConfig": {
+      "enable": false
+    },
+    "name": "allow-https-mercadopaginas",
+    "network": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/networks/default",
+    "priority": 1000,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/firewalls/allow-https-mercadopaginas",
+    "sourceRanges": [
+      "0.0.0.0/0"
+    ],
+    "targetTags": [
+      "mercadopaginas-web-server"
+    ]
+  },
+  {
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "80"
+        ]
+      }
+    ],
+    "creationTimestamp": "2026-01-23T13:57:08.002-08:00",
+    "description": "",
+    "direction": "INGRESS",
+    "disabled": false,
+    "id": "1162824602764595292",
+    "kind": "compute#firewall",
+    "logConfig": {
+      "enable": false
+    },
+    "name": "default-allow-http",
+    "network": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/networks/default",
+    "priority": 1000,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/firewalls/default-allow-http",
+    "sourceRanges": [
+      "0.0.0.0/0"
+    ],
+    "targetTags": [
+      "http-server"
+    ]
+  },
+  {
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "443"
+        ]
+      }
+    ],
+    "creationTimestamp": "2026-01-23T13:57:07.760-08:00",
+    "description": "",
+    "direction": "INGRESS",
+    "disabled": false,
+    "id": "1979352006617092188",
+    "kind": "compute#firewall",
+    "logConfig": {
+      "enable": false
+    },
+    "name": "default-allow-https",
+    "network": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/networks/default",
+    "priority": 1000,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/firewalls/default-allow-https",
+    "sourceRanges": [
+      "0.0.0.0/0"
+    ],
+    "targetTags": [
+      "https-server"
+    ]
+  },
+  {
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "80",
+          "443"
+        ]
+      }
+    ],
+    "creationTimestamp": "2026-01-13T07:24:27.531-08:00",
+    "description": "",
+    "direction": "INGRESS",
+    "disabled": false,
+    "id": "7104313091093683524",
+    "kind": "compute#firewall",
+    "logConfig": {
+      "enable": true,
+      "metadata": "INCLUDE_ALL_METADATA"
+    },
+    "name": "permitir-http-https-publico",
+    "network": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/networks/default",
+    "priority": 1000,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/project-2eb71890-6e93-4cfd-a00/global/firewalls/permitir-http-https-publico",
+    "sourceRanges": [
+      "0.0.0.0/0"
+    ],
+    "targetTags": [
+      "http-server",
+      "https-server"
+    ]
+  }
+]
