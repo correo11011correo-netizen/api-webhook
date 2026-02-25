@@ -1,18 +1,25 @@
 import json
 import logging
 import requests
-from flask import Flask, request, jsonify
+import subprocess
+from datetime import datetime
+from flask import Flask, request, jsonify, render_template
 
 # --- Basic Setup ---
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(levelname)s] %(message)s')
+
+# --- Global Variable for Last Request Time ---
+last_webhook_time = None
 
 # --- Load Configuration ---
 try:
     with open('config.json') as f:
         config = json.load(f)
     VERIFY_TOKEN = config['VERIFY_TOKEN']
-    FORWARD_URL = config['FORWARD_URL']
+    # FORWARD_URL is now used as a fallback if not defined per bot
+    FORWARD_URL = config.get('FORWARD_URL') 
+    CONFIGURED_BOTS = config.get('bots', [])
 except FileNotFoundError:
     logging.error("FATAL: config.json not found. The service cannot start.")
     exit(1)
@@ -28,8 +35,10 @@ def webhook():
     - GET: Used for the initial verification challenge.
     - POST: Used to receive and forward incoming messages.
     """
+    global last_webhook_time
+    last_webhook_time = datetime.now()
+
     if request.method == 'GET':
-        # --- Webhook Verification ---
         if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.verify_token') == VERIFY_TOKEN:
             logging.info("Webhook verification successful!")
             return request.args.get('hub.challenge'), 200
@@ -38,20 +47,64 @@ def webhook():
             return 'Verification token mismatch', 403
 
     if request.method == 'POST':
-        # --- Message Forwarding ---
         data = request.get_json()
-        logging.info(f"Received webhook. Forwarding to {FORWARD_URL}...")
         
+        # Forward to the first enabled bot's URL or the default FORWARD_URL
+        target_url = FORWARD_URL
+        for bot in CONFIGURED_BOTS:
+            if bot.get('enabled'):
+                target_url = bot.get('forward_url')
+                break
+        
+        logging.info(f"Received webhook. Forwarding to {target_url}...")
         try:
-            # Forward the request. We don't wait long for a response.
-            requests.post(FORWARD_URL, json=data, timeout=3)
+            requests.post(target_url, json=data, timeout=3)
             logging.info("Webhook forwarded successfully.")
         except requests.exceptions.RequestException as e:
-            # Log the error, but still return OK to Meta.
             logging.error(f"Failed to forward webhook: {e}")
         
-        # Respond to Meta immediately to prevent timeouts.
         return 'OK', 200
+
+# --- Dashboard Endpoint ---
+@app.route('/dashboard')
+def dashboard():
+    """Renders the status dashboard."""
+    # 1. Get last request time
+    formatted_time = last_webhook_time.strftime('%Y-%m-%d %H:%M:%S UTC') if last_webhook_time else None
+
+    # 2. Get recent logs
+    try:
+        log_process = subprocess.run(
+            ['sudo', 'tail', '-n', '20', '/var/log/apache2/api-fundacion-error.log'],
+            capture_output=True, text=True, check=True
+        )
+        logs = log_process.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        logs = f"Error al leer el log: {e}"
+
+    # 3. Get status of services for enabled bots
+    service_status_list = []
+    for bot in CONFIGURED_BOTS:
+        if bot.get('enabled'):
+            service_name = bot.get('service_name')
+            if service_name:
+                try:
+                    status_process = subprocess.run(
+                        ['systemctl', 'is-active', service_name],
+                        capture_output=True, text=True
+                    )
+                    status = status_process.stdout.strip()
+                except FileNotFoundError:
+                    status = 'unknown'
+                service_status_list.append({'name': service_name, 'status': status})
+
+    return render_template(
+        'status.html',
+        last_request_time=formatted_time,
+        logs=logs,
+        bots=CONFIGURED_BOTS,
+        service_status=service_status_list
+    )
 
 # --- Health Check Endpoint ---
 @app.route('/health', methods=['GET'])
@@ -61,5 +114,4 @@ def health_check():
 
 # --- Main Execution ---
 if __name__ == '__main__':
-    # Listens on port 5000, accessible from any IP address.
     app.run(host='0.0.0.0', port=5000, debug=False)
