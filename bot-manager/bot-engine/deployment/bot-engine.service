@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve the Bot Engine API
+After=network.target
+
+[Service]
+User=nestorfabianriveros2014
+Group=www-data
+WorkingDirectory=/home/nestorfabianriveros2014/bot-manager/bot-engine
+Environment="PATH=/home/nestorfabianriveros2014/bot-manager/bot-engine/venv/bin"
+ExecStart=/home/nestorfabianriveros2014/bot-manager/bot-engine/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5001 server:app
+
+[Install]
+WantedBy=multi-user.target

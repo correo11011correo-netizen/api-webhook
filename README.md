@@ -1,32 +1,61 @@
-# Repositorio de Arquitectura de Webhooks de Meta API
+# API Webhook y Bot Engine
 
-## 1. Arquitectura y Visión General
+Este repositorio contiene el código de producción del webhook y del motor del bot de la Fundación IDEAR. Aquí están las instrucciones exactas de recuperación y despliegue del servicio desde cero en caso de necesitar reinstalar el sistema.
 
-Este repositorio contiene la configuración y el código funcional para una arquitectura de webhooks desacoplada y robusta, diseñada para recibir y procesar webhooks de la API de Meta (WhatsApp, Instagram, etc.).
+## Pasos para Desplegar
 
-La arquitectura se divide en dos componentes principales:
+1. **Clonar el Repositorio**
+   Clona el repositorio en tu servidor. El contenido de este repositorio debe ubicarse idealmente en los directorios de trabajo separados:
+   - `api-fundacion-idear-webhook/`
+   - `bot-manager/bot-engine/`
 
-1.  **Webhook Forwarder (Reenviador)**: Un servicio ligero y seguro expuesto a Internet que recibe las peticiones de Meta y las reenvía al "Bot Engine" activo.
-2.  **Bot Engine (Motor del Bot)**: Uno o más servicios internos que contienen la lógica de negocio compleja del bot.
+2. **Crear Entornos Virtuales e Instalar Dependencias**
+   Para cada una de las dos carpetas (`api-fundacion-idear-webhook` y `bot-manager/bot-engine`), crea su propio entorno virtual e instala los requerimientos:
+   ```bash
+   # En api-fundacion-idear-webhook
+   cd api-fundacion-idear-webhook
+   python3 -m venv env
+   source env/bin/activate
+   pip install -r requirements.txt
+   deactivate
 
-**Para una explicación detallada de la arquitectura, cómo replicar toda la configuración desde cero y cómo añadir nuevos bots, por favor, consulta nuestra guía completa:**
+   # En bot-manager/bot-engine
+   cd ../bot-manager/bot-engine
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   deactivate
+   ```
 
-➡️ **[Guía Completa: Replicar y Expandir la Arquitectura de Webhooks](HOW_TO_REPLICATE.md)**
+3. **Configurar Variables de Entorno**
+   En la carpeta `bot-manager/bot-engine`, encontrarás un archivo llamado `.env.example`. Cópialo y renómbralo a `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   Edita el nuevo archivo `.env` añadiendo tus contraseñas y credenciales reales (Token de Meta, Puerto, Webhook Token, etc). **Nunca subas el archivo `.env` al repositorio.**
 
----
+4. **Configurar Systemd (Demonios)**
+   Para que los servicios corran en el fondo y se reinicien solos, copia los archivos `.service` proveídos:
+   ```bash
+   sudo cp api-fundacion-idear-webhook/deployment/fundacionidear.service /etc/systemd/system/
+   sudo cp bot-manager/bot-engine/deployment/bot-engine.service /etc/systemd/system/
+   ```
+   Recarga los demonios e inicia los servicios:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable fundacionidear.service bot-engine.service
+   sudo systemctl start fundacionidear.service bot-engine.service
+   ```
 
-## 2. Información Clave del Proyecto
+5. **Configurar Apache (Proxy Reverso)**
+   Configura tu servidor web (Apache o Nginx). Hay una plantilla de configuración provista en `api-fundacion-idear-webhook/deployment/apache-proxy.conf`.
+   Asegúrate de agregar las reglas de `ProxyPass`:
+   - `/webhook` a `http://127.0.0.1:5000/webhook` (El servicio Fundacion Idear)
+   - `/dashboard` a `http://127.0.0.1:5001/dashboard` (El panel de Bot Engine)
+   
+   Reinicia Apache:
+   ```bash
+   sudo systemctl restart apache2
+   ```
 
-- **Proyecto Google Cloud (GCP)**: `My First Project` (ID: `project-2eb71890-6e93-4cfd-a00`)
-- **Instancia de Cómputo (VM)**: `mi-servidor-web`
-- **Endpoint Público del Webhook**: `https://api.fundacionidear.com/webhook`
-
----
-
-## 3. Estructura del Repositorio
-
-- **`/webhook-forwarder`**: Contiene el código y la configuración del servicio reenviador.
-- **`/bot-engine`**: Contiene el código y la configuración del bot principal actual.
-- **`/deployment-examples`**: Contiene plantillas para desplegar nuevos servicios.
-- **`HOW_TO_REPLICATE.md`**: La guía de instalación y expansión completa.
-- **`README.md`**: Este archivo.
+Con estos pasos, el servicio deberá quedar 100% operativo.

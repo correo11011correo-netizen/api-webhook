@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve Fundacion Idear Webhook API
+After=network.target
+
+[Service]
+User=nestorfabianriveros2014
+Group=www-data
+WorkingDirectory=/home/nestorfabianriveros2014/api-fundacion-idear-webhook/app
+Environment="PATH=/home/nestorfabianriveros2014/api-fundacion-idear-webhook/env/bin"
+ExecStart=/home/nestorfabianriveros2014/api-fundacion-idear-webhook/env/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 app:app
+
+[Install]
+WantedBy=multi-user.target
