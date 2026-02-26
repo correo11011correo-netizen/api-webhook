@@ -4,19 +4,33 @@ import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 
-# --- Rutas absolutas al motor y a la base de datos central ---
-PROJECT_ROOT = '/home/nestorfabianriveros2014/bot-manager'
-BOT_ENGINE_PATH = os.path.join(PROJECT_ROOT, 'bot-engine')
-DB_PATH = os.path.join(PROJECT_ROOT, 'database', 'bot_dashboard.db')
+# --- Rutas relativas al motor y a la base de datos central ---
+# Este script asume que está en api-webhook/dashboard-cli/
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+# Resolvemos las rutas hacia el bot-engine y la base de datos
+# asumiendo que están en la carpeta bot-manager del repositorio
+BOT_ENGINE_PATH = os.path.join(PROJECT_ROOT, 'bot-manager', 'bot-engine')
+DB_PATH = os.path.join(PROJECT_ROOT, 'bot-manager', 'database', 'bot_dashboard.db')
 
 if BOT_ENGINE_PATH not in sys.path:
     sys.path.insert(0, BOT_ENGINE_PATH)
 
-# Solo importamos la función para enviar mensajes del motor
-from engine import load_config, send_msg
+# Importamos la configuración y función de envío del motor
+try:
+    from engine import load_config, send_msg
+except ImportError:
+    print("❌ Error: No se pudo importar 'engine.py'.")
+    print(f"Verifica que el archivo exista en: {BOT_ENGINE_PATH}")
+    sys.exit(1)
 
 def get_db_connection():
     """Establece conexión directa con la base de datos central."""
+    if not os.path.exists(DB_PATH):
+        print(f"❌ Error: No se encontró la base de datos en {DB_PATH}.")
+        sys.exit(1)
+        
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -146,7 +160,8 @@ def manage_chat(cfg, contact_info):
 
         display_chat_history(contact_info, messages)
 
-        print("\nOpciones:")
+        print("
+Opciones:")
         print("1. Responder mensaje")
         print("2. Cambiar estado de intervención (Pausar/Reanudar Bot)")
         print("3. Actualizar pantalla de Chat")
@@ -194,7 +209,10 @@ def manage_chat(cfg, contact_info):
 def main():
     # Cargar el archivo .env desde el motor
     env_path = os.path.join(BOT_ENGINE_PATH, '.env')
-    load_dotenv(dotenv_path=env_path)
+    if os.path.exists(env_path):
+        load_dotenv(dotenv_path=env_path)
+    else:
+        print(f"⚠️  Advertencia: No se encontró .env en {env_path}. Si las variables no están en el entorno, el bot fallará al enviar mensajes.")
     
     cfg = load_config()
 
@@ -205,7 +223,8 @@ def main():
         if choice == '1':
             conversations = get_conversations()
             if not conversations:
-                print("\nNo hay conversaciones activas en la base de datos.")
+                print("
+No hay conversaciones activas en la base de datos.")
                 input("Presiona Enter para volver.")
                 continue
             
