@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub de Administración - WhatsApp</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .hub-container {
+            text-align: center;
+            max-width: 1000px;
+            width: 90%;
+        }
+        .hub-header {
+            margin-bottom: 40px;
+        }
+        .hub-header h1 {
+            color: #1c1e21;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .hub-header p {
+            color: #606770;
+            font-size: 1.1rem;
+        }
+        .hub-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .hub-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .hub-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-color: #00a884;
+        }
+        .hub-card i {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #00a884;
+        }
+        .hub-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #1c1e21;
+        }
+        .hub-card p {
+            color: #606770;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .user-info span {
+            font-weight: bold;
+            color: #1c1e21;
+        }
+        .logout-btn {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-info">
+        <span id="username">Cargando...</span>
+        <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+    </div>
+
+    <div class="hub-container">
+        <div class="hub-header">
+            <h1>WhatsApp Hub</h1>
+            <p>Bienvenido al centro de control de integraciones</p>
+        </div>
+        <div class="hub-grid">
+            <a href="index.html" class="hub-card">
+                <i class="fas fa-comments"></i>
+                <h3>Panel de Chats</h3>
+                <p>Gestiona conversaciones en tiempo real e interviene manualmente.</p>
+            </a>
+            <a href="settings.html" class="hub-card">
+                <i class="fas fa-cog"></i>
+                <h3>Configuración Bot</h3>
+                <p>Ajustes de API Meta, Webhooks y mensajes automáticos.</p>
+            </a>
+            <a href="https://stockpro.app" target="_blank" class="hub-card">
+                <i class="fas fa-boxes"></i>
+                <h3>Sincronización Stock</h3>
+                <p>Verifica el estado de conexión y datos con Stock-Pro.</p>
+            </a>
+            <a href="#" class="hub-card" onclick="alert("Próximamente")">
+                <i class="fas fa-chart-line"></i>
+                <h3>Analíticas y API</h3>
+                <p>Métricas de interacción y documentación técnica.</p>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        async function checkSession() {
+            const token = localStorage.getItem("session_token");
+            if (!token) {
+                window.location.href = "login.html";
+                return;
+            }
+
+            try {
+                // Simple check to see if token is valid (can be an endpoint in backend)
+                const response = await fetch("/api/chats", {
+                    headers: { "Authorization": token }
+                });
+                if (response.status === 401) {
+                    throw new Error("Session expired");
+                }
+                const data = await response.json();
+                // We can store user info in localStorage during login
+                document.getElementById("username").innerText = localStorage.getItem("username") || "Usuario";
+            } catch (e) {
+                localStorage.removeItem("session_token");
+                window.location.href = "login.html";
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("session_token");
+            localStorage.removeItem("username");
+            window.location.href = "login.html";
+        }
+
+        checkSession();
+    </script>
+</body>
+</html>

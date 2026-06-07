@@ -1,13 +1,13 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Usamos la nueva URL proxyada via Apache -> app.py
-    const API_BASE_URL = 'https://api.fundacionidear.com/dashboard/api'; 
+document.addEventListener('DOMContentLoaded', () => { 
+    // Usamos la URL del backend local para esta integración
+    const API_BASE_URL = '/api';  
 
     const chatListElement = document.getElementById('chat-list');
     const chatViewElement = document.getElementById('chat-view');
-    const welcomeViewElement = document.getElementById('welcome-view');
+    const welcomeViewElement = document.getElementById('welcome-view');   
     const sidebarElement = document.getElementById('sidebar');
     const backBtn = document.getElementById('back-btn');
-    const botSelector = document.getElementById('bot-selector-main');
+    const botSelector = document.getElementById('bot-selector-main');     
     const attachBtn = document.getElementById('attach-btn');
     const mediaInput = document.getElementById('media-upload-input');
 
@@ -16,7 +16,41 @@ document.addEventListener('DOMContentLoaded', () => {
     let chatsInterval = null;
     let currentBotId = 'default';
 
-    // --- Funciones de UI y Responsividad ---
+    // --- Gestión de Sesión ---
+    async function checkSession() {
+        const token = localStorage.getItem("session_token");
+        if (!token) {
+            window.location.href = "login.html";
+            return false;
+        }
+        try {
+            const res = await fetch(`${API_BASE_URL}/chats`, {
+                headers: { "Authorization": token }
+            });
+            if (res.status === 401) {
+                localStorage.removeItem("session_token");
+                window.location.href = "login.html";
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error("Error validando sesión", e);
+            return true; // Permitimos continuar si es un error de red
+        }
+    }
+
+    async function authenticatedFetch(url, options = {}) {
+        const token = localStorage.getItem("session_token");
+        const headers = { ...options.headers, "Authorization": token };
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 401) {
+            localStorage.removeItem("session_token");
+            window.location.href = "login.html";
+        }
+        return response;
+    }
+
+    // --- Funciones de UI y Responsividad --- 
     function showChatView() {
         welcomeViewElement.classList.add('hidden');
         chatViewElement.classList.remove('hidden');
@@ -34,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chatViewElement.classList.add('hidden');
         } else {
             welcomeViewElement.classList.remove('hidden');
-            chatViewElement.classList.add('hidden');
+            chatViewElement.classList.add('hidden'); 
         }
         backBtn.classList.add('hidden');
         currentPhone = null;
@@ -46,23 +80,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     botSelector.addEventListener('change', (e) => {
         currentBotId = e.target.value;
-        // En el futuro, esto cambiaría el API_BASE_URL o añadiría un query param.
-        // Por ahora recargamos los chats del bot actual.
         showSidebar();
         fetchConversations();
     });
 
     // --- Funciones API ---
-    async function fetchConversations() {
+    async function fetchConversations() { 
         try {
-            const res = await fetch(`${API_BASE_URL}/conversations`);
+            const res = await authenticatedFetch(`${API_BASE_URL}/chats`);
             if (!res.ok) throw new Error("API error");
             const conversations = await res.json();
             renderChatList(conversations);
         } catch (e) {
             console.error('Error fetching conversations:', e);
             if (!chatListElement.innerHTML.includes('li')) {
-                chatListElement.innerHTML = '<li style="padding:15px; color:red;">Error de conexión. Reintentando...</li>';
+                chatListElement.innerHTML = '<li style="padding:15px; color:red;">Error de conexiÃ³n. Reintentando...</li>';
             }
         }
     }
@@ -70,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderChatList(conversations) {
         if (!conversations || conversations.length === 0) {
             chatListElement.innerHTML = '<li style="padding:15px;">No hay conversaciones.</li>';
-            return;
+            return; 
         }
 
         const currentElements = Array.from(chatListElement.children);
@@ -80,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let li = chatListElement.querySelector(`li[data-phone="${chat.phone_number}"]`);
             const isActive = (String(chat.is_human_intervening) === 'true');
             const name = chat.name || 'Desconocido';
-            
+
             if (!li) {
                 li = document.createElement('li');
                 li.dataset.phone = chat.phone_number;
@@ -93,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentHtml = `
                 <div class="chat-item-name">
                     <span>${name}</span>
-                    <span>${isActive ? '👤' : '🤖'}</span>
+                    <span>${isActive ? 'ðŸ‘¤' : 'ðŸ¤–'}</span>
                 </div>
                 <div class="chat-item-phone">${chat.phone_number}</div>
             `;
@@ -111,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         currentElements.forEach(el => {
-            if (el.dataset.phone && !incomingPhones.includes(el.dataset.phone)) {
+            if (el.dataset.phone && !incomingPhones.includes(el.dataset.phone)) { 
                 el.remove();
             }
         });
@@ -122,8 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             const active = (String(isHuman) === 'true');
             btn.className = active ? 'active' : '';
-            btn.textContent = active ? '👤 Modo Humano (ON)' : '🤖 Modo Bot (ON)';
-            
+            btn.textContent = active ? 'ðŸ‘¤ Modo Humano (ON)' : 'ðŸ¤– Modo Bot (ON)';
+
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             newBtn.addEventListener('click', () => toggleHuman(currentPhone, active));
@@ -133,25 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadChatDetail(phone, name, isHuman) {
         currentPhone = phone;
 
-        // UI Updates
         document.querySelectorAll('#chat-list li').forEach(li => {
             li.classList.toggle('selected', li.dataset.phone === phone);
         });
-        
+
         document.getElementById('chat-header-name').textContent = name;
         document.getElementById('chat-header-phone').textContent = phone;
-        
+
         showChatView();
         updateInterventionButton(isHuman);
-        
+
         document.getElementById('messages-container').innerHTML = '<div style="text-align:center; padding: 20px;">Cargando mensajes...</div>';
 
-        // Setup input events (clean old ones by cloning)
         const sendBtn = document.getElementById('send-message-btn');
         const newSendBtn = sendBtn.cloneNode(true);
         sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
         newSendBtn.addEventListener('click', () => sendMessage(phone));
-        
+
         const inputTxt = document.getElementById('message-input-text');
         const newInputTxt = inputTxt.cloneNode(true);
         inputTxt.parentNode.replaceChild(newInputTxt, inputTxt);
@@ -159,56 +189,49 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Enter') sendMessage(phone);
         });
 
-        // Delete button setup
         const deleteBtn = document.getElementById('delete-chat-btn');
-        if (deleteBtn) {
+        if (deleteBtn) { 
             const newDeleteBtn = deleteBtn.cloneNode(true);
             deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
             newDeleteBtn.addEventListener('click', () => deleteConversation(phone));
         }
 
-        // Fetch
         await fetchMessages(phone);
 
         if (messagesInterval) clearInterval(messagesInterval);
         messagesInterval = setInterval(() => {
             if (currentPhone === phone) fetchMessages(phone, false);
         }, 3000);
-        }
+    }
 
-        async function deleteConversation(phone) {
-            if (!confirm('¿Estás seguro de que deseas borrar toda la conversación con ' + phone + '? Esta acción no se puede deshacer.')) return;
+    async function deleteConversation(phone) {
+        if (!confirm('Â¿EstÃ¡s seguro de que deseas borrar toda la conversaciÃ³n con ' + phone + '? Esta acciÃ³n no se puede deshacer.')) return;
 
-            try {
-                console.log("Iniciando peticion POST a:", `${API_BASE_URL}/conversations/delete`);
-                const res = await fetch(`${API_BASE_URL}/conversations/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ phone_number: phone })
-                });
+        try {
+            const res = await authenticatedFetch(`${API_BASE_URL}/chats/${phone}/delete`, {
+                method: 'POST'
+            });
 
-                console.log("Status de la respuesta:", res.status);
-
-                if (res.ok) {
-                    console.log("Borrado exitoso.");
-                    if (currentPhone === phone) {
-                        showSidebar();
-                    }
-                    fetchConversations();
-                } else {
-                    // Leer el texto exacto del error devuelto por el servidor
-                    const errorText = await res.text();
-                    console.error("Fallo al borrar. Respuesta cruda del servidor:", errorText);
-                    alert(`Error ${res.status} al borrar la conversación.\nDetalle: ${errorText.substring(0, 200)}`);
+            if (res.ok) {
+                if (currentPhone === phone) {
+                    showSidebar();
                 }
-            } catch (error) {
-                console.error('Error de red CRITICO al intentar borrar:', error);
-                alert(`Error de conexión al intentar comunicarse con el servidor:\n${error.message}`);
+                fetchConversations();
+            } else {
+                const errorText = await res.text();
+                alert(`Error ${res.status} al borrar la conversaciÃ³n.
+Detalle: ${errorText}`);
             }
-        }        async function fetchMessages(phone, showLoading = true) {        try {
-            const res = await fetch(`${API_BASE_URL}/messages/${phone}`);
+        } catch (error) {
+            console.error('Error de red:', error);
+            alert(`Error de conexiÃ³n:
+${error.message}`);
+        }
+    }
+
+    async function fetchMessages(phone, showLoading = true) {
+        try {
+            const res = await authenticatedFetch(`${API_BASE_URL}/chats/${phone}/messages`);
             const messages = await res.json();
             if (currentPhone === phone) {
                 renderMessages(messages);
@@ -216,12 +239,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error('Error fetching messages:', e);
             if (showLoading) {
-                document.getElementById('messages-container').innerHTML = '<div style="color:red; text-align:center; padding: 20px;">Error al cargar.</div>';
+                document.getElementById('messages-container').innerHTML = '<div style="color:red; text-align:center; padding: 20px;">Error al cargar.</div>';   
             }
         }
     }
 
-    function renderMessages(messages) {
+    function renderMessages(messages) { 
         const container = document.getElementById('messages-container');
         if (!container) return;
 
@@ -230,17 +253,17 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = messages.map(msg => {
             const isClient = msg.sender === 'client';
             const typeClass = isClient ? 'received' : 'sent';
-            
+
             let senderLabel = '';
-            if (msg.sender === 'bot') senderLabel = '<span class="msg-sender-label" style="color:#008069;">🤖 Bot</span>';
-            if (msg.sender === 'human') senderLabel = '<span class="msg-sender-label" style="color:#53bdeb;">👤 Tú</span>';
+            if (msg.sender === 'bot') senderLabel = '<span class="msg-sender-label" style="color:#008069;">ðŸ¤– Bot</span>';
+            if (msg.sender === 'human') senderLabel = '<span class="msg-sender-label" style="color:#53bdeb;">ðŸ‘¤ TÃº</span>';
 
             const d = new Date(msg.timestamp);
             const timeStr = isNaN(d) ? '' : `<span class="msg-meta">${d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
 
             return `<div class="message ${typeClass}">${senderLabel}${msg.content}${timeStr}</div>`;
         }).join('');
-        
+
         if (isScrolledToBottom || !container.dataset.loaded) {
             container.scrollTop = container.scrollHeight;
             container.dataset.loaded = 'true';
@@ -252,21 +275,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = input.value.trim();
         if (text === '') return;
 
-        input.value = ''; 
+        input.value = '';
         input.focus();
-        
+
         const container = document.getElementById('messages-container');
         if (container) {
-            const optimisticMsg = `<div class="message sent" style="opacity: 0.6;"><span class="msg-sender-label" style="color:#53bdeb;">👤 Tú</span>${text}<span class="msg-meta">Enviando...</span></div>`;
-            container.insertAdjacentHTML('beforeend', optimisticMsg);
+            const optimisticMsg = `<div class="message sent" style="opacity: 0.6;"><span class="msg-sender-label" style="color:#53bdeb;">ðŸ‘¤ TÃº</span>${text}<span class="msg-meta">Enviando...</span></div>`;
+            container.insertAdjacentHTML('beforeend', optimisticMsg); 
             container.scrollTop = container.scrollHeight;
         }
 
         try {
-            await fetch(`${API_BASE_URL}/send_message_from_dashboard`, {
+            await authenticatedFetch(`${API_BASE_URL}/chats/${phone}/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_number: phone, content: text })
+                body: JSON.stringify({ message: text })
             });
             await fetchMessages(phone, false);
         } catch (e) {
@@ -276,12 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Manejo de Archivos Multimedia ---
     if (attachBtn && mediaInput) {
         attachBtn.addEventListener('click', () => {
             if (!currentPhone) return;
             mediaInput.click();
-        });
+        }); 
 
         mediaInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -293,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const container = document.getElementById('messages-container');
             if (container) {
-                const optimisticMsg = `<div class="message sent" style="opacity: 0.6;"><span class="msg-sender-label" style="color:#53bdeb;">👤 Tú</span>📎 Enviando archivo: ${file.name}...<span class="msg-meta">Subiendo...</span></div>`;
+                const optimisticMsg = `<div class="message sent" style="opacity: 0.6;"><span class="msg-sender-label" style="color:#53bdeb;">ðŸ‘¤ TÃº</span>ðŸ“Ž Enviando archivo: ${file.name}...<span class="msg-meta">Subiendo...</span></div>`;
                 container.insertAdjacentHTML('beforeend', optimisticMsg);
                 container.scrollTop = container.scrollHeight;
             }
@@ -306,11 +328,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const res = await fetch(`${API_BASE_URL}/send_media_from_dashboard`, {
+                const res = await authenticatedFetch(`${API_BASE_URL}/media`, {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 if (!res.ok) {
                     const errText = await res.text();
                     alert(`Error enviando archivo: ${errText}`);
@@ -318,22 +340,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetchMessages(currentPhone, false);
             } catch (error) {
                 console.error('Error enviando archivo:', error);
-                alert("Error de conexión al enviar el archivo.");
+                alert(`Error de conexiÃ³n al enviar el archivo.`);
             } finally {
                 mediaInput.value = '';
             }
-        });
+        }); 
     }
 
     async function toggleHuman(phone, currentlyActive) {
         const newStatus = !currentlyActive;
         updateInterventionButton(newStatus);
-        
+
         try {
-            await fetch(`${API_BASE_URL}/intervention`, {
+            await authenticatedFetch(`${API_BASE_URL}/chats/${phone}/toggle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_number: phone, status: newStatus })
+                body: JSON.stringify({ is_human_intervening: newStatus })
             });
             fetchConversations();
         } catch (e) {
@@ -343,15 +365,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Eventos Globales ---
     chatListElement.addEventListener('click', (event) => {
         const li = event.target.closest('li');
-        if (li && li.dataset.phone) {
+        if (li && li.dataset.phone) { 
             loadChatDetail(li.dataset.phone, li.dataset.name, li.dataset.isHuman);
         }
     });
 
-    // --- Init ---
-    fetchConversations();
-    chatsInterval = setInterval(fetchConversations, 5000);
+    checkSession().then(isValid => {
+        if (isValid) {
+            fetchConversations();
+            chatsInterval = setInterval(fetchConversations, 5000);
+        }
+    });
 });
